@@ -1,0 +1,8 @@
+services:
+  open-law:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "${PORT}:${PORT}" # Removed 127.0.0.1 so it's reachable
+    restart: unless-stopped

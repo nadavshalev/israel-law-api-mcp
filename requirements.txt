@@ -1,0 +1,6 @@
+requests
+fastapi
+uvicorn
+mcp
+slowapi
+pytest

@@ -1,0 +1,17 @@
+.env
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+*.egg-info
+dist
+build
+coverage
+.coverage
+node_modules
+scripts/
