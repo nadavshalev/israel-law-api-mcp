@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY . /app
 
-ENV HOST=0.0.0.0doc
+ENV HOST=0.0.0.0
 ENV PORT=8000
 
 EXPOSE 8000

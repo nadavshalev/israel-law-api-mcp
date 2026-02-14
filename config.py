@@ -6,16 +6,17 @@ from pathlib import Path
 try:
     from dotenv import load_dotenv
 except ModuleNotFoundError:
-    def load_dotenv() -> None:
+    def load_dotenv() -> bool:
         env_path = Path(__file__).resolve().parent / ".env"
         if not env_path.exists():
-            return
+            return False
         for line in env_path.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
             if not stripped or stripped.startswith("#") or "=" not in stripped:
                 continue
             key, value = stripped.split("=", 1)
             os.environ.setdefault(key.strip(), value.strip())
+        return True
 
 load_dotenv()
 
@@ -37,6 +38,14 @@ def _get_int(name: str, default: int) -> int:
         return default
 
 
+def _get_list(name: str, default: list[str]) -> list[str]:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    parts = [item.strip() for item in raw.split(",")]
+    return [item for item in parts if item]
+
+
 RATE_LIMIT_ENABLED = _get_bool("RATE_LIMIT_ENABLED", True)
 RATE_LIMIT_PER_IP = os.getenv("RATE_LIMIT_PER_IP", "60/minute")
 
@@ -47,3 +56,10 @@ MAX_SEARCH_LIMIT = _get_int("MAX_SEARCH_LIMIT", 20)
 
 CONCURRENT_LIMIT_ENABLED = _get_bool("CONCURRENT_LIMIT_ENABLED", True)
 CONCURRENT_LIMIT_TOTAL = _get_int("CONCURRENT_LIMIT_TOTAL", 10)
+
+MCP_ALLOWED_HOSTS = _get_list(
+    "MCP_ALLOWED_HOSTS",
+    ["localhost:*", "127.0.0.1:*"]
+)
+MCP_ALLOWED_ORIGINS = _get_list("MCP_ALLOWED_ORIGINS", [])
+MCP_DNS_REBINDING_PROTECTION = _get_bool("MCP_DNS_REBINDING_PROTECTION", True)

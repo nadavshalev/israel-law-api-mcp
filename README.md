@@ -52,6 +52,19 @@ curl -X POST "http://127.0.0.1:8000/api/laws/279238/sections/text" \
 
 MCP endpoint: `http://127.0.0.1:8000/mcp/`
 
+If you deploy behind a public domain, set `MCP_ALLOWED_HOSTS` to include it.
+Example:
+
+```
+MCP_ALLOWED_HOSTS=localhost:*,127.0.0.1:*,israel-law-api-mcp.sliplane.app:*
+```
+
+To allow all hosts (not recommended for public deployments), disable DNS rebinding protection:
+
+```
+MCP_DNS_REBINDING_PROTECTION=false
+```
+
 Example MCP client config:
 
 ```json

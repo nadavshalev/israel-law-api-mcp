@@ -6,6 +6,7 @@ import asyncio
 
 from fastapi import Body, FastAPI, HTTPException, Path, Query, Request
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -22,16 +23,26 @@ from config import (
     MAX_SEARCH_PHRASE_LEN,
     MAX_SECTION_TEXT_CHARS,
     MAX_SECTIONS_PER_REQUEST,
+    MCP_ALLOWED_HOSTS,
+    MCP_ALLOWED_ORIGINS,
+    MCP_DNS_REBINDING_PROTECTION,
     RATE_LIMIT_ENABLED,
     RATE_LIMIT_PER_IP,
 )
 
+
+transport_security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=MCP_DNS_REBINDING_PROTECTION,
+    allowed_hosts=MCP_ALLOWED_HOSTS,
+    allowed_origins=MCP_ALLOWED_ORIGINS,
+)
 
 mcp = FastMCP(
     name="Israel Law MCP",
     instructions="Tools for searching Israeli laws and fetching sections from Hebrew Wikisource.",
     stateless_http=True,
     streamable_http_path="/",
+    transport_security=transport_security,
 )
 
 mcp_app = mcp.streamable_http_app()
