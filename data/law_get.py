@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import json
 import re
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Set
 from data.wiki_client import MediaWikiClient
 
 
 SECTION_PATTERN = re.compile(r"\{\{ח:סעיף\|(.*?)\|(.*?)(?:\|.*?)?\}\}")
 TEMPLATE_PATTERN = re.compile(r"\{\{ח:[^}]+\}\}")
+LINK_PATTERN = re.compile(r"\[\[(.*?)\]\]")
+MAIN_PAGE_ID = 247
 
 
 def _fetch_law_wikitext(title: str | None = None, page_id: int | None = None) -> Dict[str, Any]:
@@ -27,6 +31,65 @@ def _fetch_law_wikitext(title: str | None = None, page_id: int | None = None) ->
 
     client = MediaWikiClient()
     return client.get(params)
+
+
+def _get_cache_path() -> Path:
+    cache_dir = Path(__file__).resolve().parent / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / "page_247.json"
+
+
+def _load_main_page_cache() -> Dict[str, Any] | None:
+    cache_path = _get_cache_path()
+    if not cache_path.exists():
+        return None
+    try:
+        with cache_path.open("r", encoding="utf-8") as file:
+            return json.load(file)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _save_main_page_cache(data: Dict[str, Any]) -> None:
+    cache_path = _get_cache_path()
+    try:
+        with cache_path.open("w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False)
+    except OSError:
+        pass
+
+
+def _extract_links(wikitext: str) -> Set[str]:
+    titles: Set[str] = set()
+    for match in LINK_PATTERN.finditer(wikitext):
+        title = match.group(1)
+        if "|" in title:
+            title = title.split("|", 1)[0]
+        cleaned = title.replace("_", " ").strip()
+        if cleaned:
+            titles.add(cleaned)
+    return titles
+
+
+def _normalize_title(title: str) -> str:
+    return " ".join(title.replace("_", " ").split()).strip().lower()
+
+
+def _get_main_page_titles() -> Set[str]:
+    cached = _load_main_page_cache()
+    if cached and cached.get("wikitext"):
+        wikitext = cached.get("wikitext", "")
+        titles = cached.get("titles") or list(_extract_links(wikitext))
+        return {_normalize_title(title) for title in titles}
+
+    payload = _fetch_law_wikitext(page_id=MAIN_PAGE_ID)
+    wikitext = _extract_wikitext(payload)
+    if not wikitext:
+        raise RuntimeError("Failed to fetch main page wikitext")
+
+    titles = list(_extract_links(wikitext))
+    _save_main_page_cache({"wikitext": wikitext, "titles": titles})
+    return {_normalize_title(title) for title in titles}
 
 
 def _clean_section_text(text: str) -> str:
@@ -91,12 +154,22 @@ def wide_law_search(phrase: str, limit: int = 10) -> List[Dict[str, str | int]]:
     client = MediaWikiClient()
     payload = client.search(query, limit=limit, namespace=0)
     results = payload.get("query", {}).get("search", [])
+
+    main_titles = _get_main_page_titles()
+    if not main_titles:
+        raise RuntimeError("Main page titles unavailable")
+
     laws: List[Dict[str, str | int]] = []
     for item in results:
         title = item.get("title")
         page_id = item.get("pageid")
-        if (title and page_id is not None) and page_id != 247: # Exclude also the main page
-            laws.append({"title": title, "page_id": page_id})
+
+        # Skip results that are not valid laws based on the main page titles and page ID
+        if not (title and page_id is not None) or \
+                page_id == MAIN_PAGE_ID or \
+                _normalize_title(title) not in main_titles:
+            continue
+        laws.append({"title": title, "page_id": page_id})
     return laws
 
 def get_law_sections_text(page_id: int, sections_num: list[str]) -> List[Dict[str, str]]:

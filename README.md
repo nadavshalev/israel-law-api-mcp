@@ -34,10 +34,16 @@ REST base URL: `http://127.0.0.1:8000/api`
 - `POST /api/laws/{page_id}/sections/text`
 - `POST /api/citations`
 
+Search notes:
+- Law search results are filtered to titles listed on the main laws page (page_id=247). That page is cached locally under `data/cache/page_247.json`; if it cannot be fetched and no cache exists, searches return an error.
+
 Example:
 
 ```bash
-curl "http://127.0.0.1:8000/api/laws/search?phrase=איסור%20עישון&limit=5"
+curl --get \
+  --data-urlencode "phrase=איסור עישון" \
+  --data-urlencode "limit=5" \
+  "http://127.0.0.1:8000/api/laws/search"
 ```
 
 To request full section text, pass `full: true` in the JSON body:
@@ -81,6 +87,12 @@ Test MCP client:
 
 ```bash
 python3 scripts/test_mcp_client.py --server "http://127.0.0.1:8000/mcp/"
+```
+
+API check helper:
+
+```bash
+BASE_URL=http://127.0.0.1:8000/api python3 scripts/check_api.py
 ```
 
 ## Docker
