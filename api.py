@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import List
+from typing import Annotated, List
 import asyncio
 
 from fastapi import Body, FastAPI, HTTPException, Path, Query, Request
@@ -39,7 +39,15 @@ transport_security = TransportSecuritySettings(
 
 mcp = FastMCP(
     name="Israel Law MCP",
-    instructions="Tools for searching Israeli laws and fetching sections from Hebrew Wikisource.",
+    instructions=(
+        "Provides tools for searching and reading Israeli legislation from Hebrew Wikisource. "
+        "Typical workflow: "
+        "(1) mcp_search_laws to find a law by name and get its page_id, "
+        "(2) mcp_list_sections to browse available sections, "
+        "(3) mcp_get_sections_text to read the full text of specific sections, "
+        "(4) mcp_build_citations to generate source URLs. "
+        "All law names and content are in Hebrew."
+    ),
     stateless_http=True,
     streamable_http_path="/",
     transport_security=transport_security,
@@ -109,8 +117,20 @@ class ConcurrencyLimiterMiddleware(BaseHTTPMiddleware):
             self.total_semaphore.release()
 
 
-@mcp.tool(description="Search for Israeli laws by phrase.")
-def mcp_search_laws(phrase: str, limit: int = 10) -> List[dict]:
+@mcp.tool(
+    description=(
+        "Search Israeli legislation on Hebrew Wikisource by a Hebrew keyword or phrase. "
+        "Use this as the first step to find the page_id of a law before fetching its sections. "
+        "The phrase should be in Hebrew (e.g. 'חוק העונשין', 'צו הגנת הצרכן'). "
+        "Returns a list of matching laws, each with 'title' (Hebrew law name) and 'page_id' (Wikisource page ID). "
+        "Use the returned page_id with mcp_list_sections or mcp_get_sections_text. "
+        "If you didn't get the desired law, try modifying the search phrase and searching again. "
+    )
+)
+def mcp_search_laws(
+    phrase: Annotated[str, Field(description="Hebrew search phrase for the law name (e.g. 'חוק העונשין')")],
+    limit: Annotated[int, Field(description="Maximum number of results to return (default 10, max 20)")] = 10,
+) -> List[dict]:
     phrase = phrase.strip()
     if not phrase:
         raise ValueError("phrase must not be empty")
@@ -121,13 +141,36 @@ def mcp_search_laws(phrase: str, limit: int = 10) -> List[dict]:
     return wide_law_search(phrase, limit=limit)
 
 
-@mcp.tool(description="List section numbers and titles for a law.")
-def mcp_list_sections(page_id: int) -> List[dict]:
+@mcp.tool(
+    description=(
+        "List all section numbers and titles for a given Israeli law. "
+        "Use this after mcp_search_laws to browse the structure of a law before fetching full text. "
+        "Returns a list of objects with 'number' (section number, e.g. '1', '2א') and 'title' (Hebrew section heading). "
+        "Pass the desired section numbers to mcp_get_sections_text to retrieve their full text. "
+        "If you don't see the section you're looking for, you can try different law page_id or "
+        "even search again with a modified phrase to find a different law page_id that might have the sections you need."
+    )
+)
+def mcp_list_sections(
+    page_id: Annotated[int, Field(description="Wikisource page ID of the law (obtained from mcp_search_laws)")],
+) -> List[dict]:
     return get_law_sections_titles(page_id)
 
 
-@mcp.tool(description="Fetch text for specific sections in a law.")
-def mcp_get_sections_text(page_id: int, sections: List[str], full: bool = False) -> List[dict]:
+@mcp.tool(
+    description=(
+        "Fetch the full text of specific sections within an Israeli law. "
+        "Use this after mcp_list_sections to retrieve the content of one or more sections by their number. "
+        "Returns a list of objects with 'number', 'title', and 'text' for each matched section. "
+        "By default text is truncated to 10,000 characters per section; set full=true to get the complete text. "
+        "Up to 10 sections can be requested at once."
+    )
+)
+def mcp_get_sections_text(
+    page_id: Annotated[int, Field(description="Wikisource page ID of the law (obtained from mcp_search_laws)")],
+    sections: Annotated[List[str], Field(description="Section numbers to fetch (e.g. ['1', '2', '3א'])")],
+    full: Annotated[bool, Field(description="If true, return complete section text without truncation")] = False,
+) -> List[dict]:
     sections_numbers = _normalize_sections(sections)
     if not sections_numbers:
         raise ValueError("sections must not be empty")
@@ -139,8 +182,19 @@ def mcp_get_sections_text(page_id: int, sections: List[str], full: bool = False)
     return results
 
 
-@mcp.tool(description="Build Wikisource citation URLs for sections.")
-def mcp_build_citations(title: str, sections: List[str]) -> List[str]:
+@mcp.tool(
+    description=(
+        "Build direct Hebrew Wikisource citation URLs for specific sections of a law. "
+        "Each URL links to the exact section anchor on the law's Wikisource page. "
+        "Use this to provide verifiable source links when citing Israeli legislation. "
+        "The title must match the exact Hebrew law title on Wikisource (e.g. 'חוק העונשין'). "
+        "Returns a list of URLs, one per requested section."
+    )
+)
+def mcp_build_citations(
+    title: Annotated[str, Field(description="Exact Hebrew law title as it appears on Wikisource (e.g. 'חוק העונשין')")],
+    sections: Annotated[List[str], Field(description="Section numbers to generate citation URLs for (e.g. ['1', '2', '3א'])")],
+) -> List[str]:
     title = title.strip()
     if not title:
         raise ValueError("title must not be empty")

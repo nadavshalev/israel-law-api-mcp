@@ -11,7 +11,8 @@ from data.law_get import MAIN_PAGE_ID
 def test_get_main_page_titles_from_cache(monkeypatch, tmp_path):
     cache_path = tmp_path / "page_247.json"
     monkeypatch.setattr(law_get, "_get_cache_path", lambda: cache_path)
-    data = {"wikitext": "[[חוק ראשון]] [[חוק_שני|חוק שני]]"}
+    from datetime import datetime
+    data = {"timestamp": datetime.now().isoformat(), "titles": ["חוק ראשון", "חוק שני"]}
     cache_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
     titles = law_get._get_main_page_titles()

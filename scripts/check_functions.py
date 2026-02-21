@@ -12,7 +12,7 @@ from data.citations import build_citations_url
 
 #%% Wide search
 
-results = wide_law_search("החוק הירדני")
+results = wide_law_search("תקנות רישוי עסקים")
 pprint({"search_results": results})
 
 if not results:

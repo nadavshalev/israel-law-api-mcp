@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 import json
 import re
 from pathlib import Path
@@ -77,18 +78,20 @@ def _normalize_title(title: str) -> str:
 
 def _get_main_page_titles() -> Set[str]:
     cached = _load_main_page_cache()
-    if cached and cached.get("wikitext"):
-        wikitext = cached.get("wikitext", "")
-        titles = cached.get("titles") or list(_extract_links(wikitext))
-        return {_normalize_title(title) for title in titles}
+    if cached and "titles" in cached and "timestamp" in cached:
+        date_diff = datetime.now() - datetime.fromisoformat(cached["timestamp"])
+        if date_diff.days < 30:
+            titles = cached["titles"]
+            return {_normalize_title(title) for title in titles}
 
+    print("Fetching main page titles from Wikipedia...")
     payload = _fetch_law_wikitext(page_id=MAIN_PAGE_ID)
     wikitext = _extract_wikitext(payload)
     if not wikitext:
         raise RuntimeError("Failed to fetch main page wikitext")
 
     titles = list(_extract_links(wikitext))
-    _save_main_page_cache({"wikitext": wikitext, "titles": titles})
+    _save_main_page_cache({"timestamp": datetime.now().isoformat(), "titles": titles})
     return {_normalize_title(title) for title in titles}
 
 
