@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path as FilePath
 from typing import Annotated, List
 import asyncio
 
@@ -30,6 +31,8 @@ from config import (
     RATE_LIMIT_PER_IP,
 )
 
+_description_path = FilePath(__file__).parent / "mcp_description.md"
+_mcp_instructions = _description_path.read_text(encoding="utf-8")
 
 transport_security = TransportSecuritySettings(
     enable_dns_rebinding_protection=MCP_DNS_REBINDING_PROTECTION,
@@ -39,15 +42,7 @@ transport_security = TransportSecuritySettings(
 
 mcp = FastMCP(
     name="Israel Law MCP",
-    instructions=(
-        "Provides tools for searching and reading Israeli legislation from Hebrew Wikisource. "
-        "Typical workflow: "
-        "(1) mcp_search_laws to find a law by name and get its page_id, "
-        "(2) mcp_list_sections to browse available sections, "
-        "(3) mcp_get_sections_text to read the full text of specific sections, "
-        "(4) mcp_build_citations to generate source URLs. "
-        "All law names and content are in Hebrew."
-    ),
+    instructions=_mcp_instructions,
     stateless_http=True,
     streamable_http_path="/",
     transport_security=transport_security,
