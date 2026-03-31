@@ -15,7 +15,8 @@ except ModuleNotFoundError:
             if not stripped or stripped.startswith("#") or "=" not in stripped:
                 continue
             key, value = stripped.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip())
+            value = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key.strip(), value)
         return True
 
 load_dotenv()
@@ -63,3 +64,15 @@ MCP_ALLOWED_HOSTS = _get_list(
 )
 MCP_ALLOWED_ORIGINS = _get_list("MCP_ALLOWED_ORIGINS", [])
 MCP_DNS_REBINDING_PROTECTION = _get_bool("MCP_DNS_REBINDING_PROTECTION", True)
+
+LAW_MAP_BATCH_SIZE = _get_int("LAW_MAP_BATCH_SIZE", 50)
+LAW_MAP_TTL_DAYS = _get_int("LAW_MAP_TTL_DAYS", 30)
+LAW_MAP_CONCURRENCY = _get_int("LAW_MAP_CONCURRENCY", 10)
+
+POSTGRES_HOST = os.getenv("POSTGRES_PATH", os.getenv("POSTGRES_HOST", "localhost"))
+POSTGRES_PORT = _get_int("POSTGRES_PORT", 5432)
+POSTGRES_DB = os.getenv("POSTGRES_DB", "")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "")
+POOL_MAX_CONN = _get_int("POOL_MAX_CONN", 5)
+FUZZY_TRGM_THRESHOLD = float(os.getenv("FUZZY_TRGM_THRESHOLD", "0.3"))

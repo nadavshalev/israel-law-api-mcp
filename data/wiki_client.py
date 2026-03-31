@@ -23,6 +23,23 @@ class MediaWikiClient:
         response.raise_for_status()
         return response.json()
 
+    def post(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        response = self.session.post(self.config["base_url"], data=data, timeout=30)
+        response.raise_for_status()
+        return response.json()
+
+    def get_pages_batch(self, titles: list[str]) -> Dict[str, Any]:
+        """Fetch wikitext for up to 50 titles in a single API call."""
+        data: Dict[str, Any] = {
+            "action": "query",
+            "prop": "revisions",
+            "rvprop": "content",
+            "rvslots": "main",
+            "titles": "|".join(titles),
+            "format": "json",
+        }
+        return self.post(data)
+
     def search(self, query: str, limit: int = 10, namespace: int | None = None) -> Dict[str, Any]:
         params = {
             "action": "query",

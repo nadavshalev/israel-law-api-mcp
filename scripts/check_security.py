@@ -10,20 +10,11 @@ from urllib.parse import quote
 
 import requests
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-def load_env() -> None:
-    env_path = Path(__file__).resolve().parents[1] / ".env"
-    if not env_path.exists():
-        return
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-        key, value = stripped.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip())
-
-
-load_env()
+import config  # noqa: E402 — triggers load_dotenv()
 
 
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000/api")

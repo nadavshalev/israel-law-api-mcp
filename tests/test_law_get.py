@@ -9,10 +9,19 @@ from data.law_get import MAIN_PAGE_ID
 
 
 def test_get_main_page_titles_from_cache(monkeypatch, tmp_path):
-    cache_path = tmp_path / "page_247.json"
+    cache_path = tmp_path / "law_map.json"
     monkeypatch.setattr(law_get, "_get_cache_path", lambda: cache_path)
+    # Clear in-memory state so cache is actually read
+    monkeypatch.setattr(law_get, "_normalized_titles", set())
+
     from datetime import datetime
-    data = {"timestamp": datetime.now().isoformat(), "titles": ["חוק ראשון", "חוק שני"]}
+    data = {
+        "timestamp": datetime.now().isoformat(),
+        "laws": [
+            {"title": "חוק ראשון", "page_id": 1},
+            {"title": "חוק שני", "page_id": 2},
+        ],
+    }
     cache_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
     titles = law_get._get_main_page_titles()
@@ -22,20 +31,19 @@ def test_get_main_page_titles_from_cache(monkeypatch, tmp_path):
 
 
 def test_get_main_page_titles_fetch_and_cache(monkeypatch, tmp_path):
-    cache_path = tmp_path / "page_247.json"
-    captured: dict[str, object] = {}
-
+    cache_path = tmp_path / "law_map.json"
     monkeypatch.setattr(law_get, "_get_cache_path", lambda: cache_path)
-    monkeypatch.setattr(law_get, "_save_main_page_cache", lambda data: captured.update(data))
+    monkeypatch.setattr(law_get, "_normalized_titles", set())
 
-    def fake_fetch(page_id=None, title=None):
+    saved: list[dict] = []
+    monkeypatch.setattr(law_get, "_save_law_map_cache", lambda laws: saved.extend(laws))
+
+    def fake_fetch(title=None, page_id=None):
         return {
             "query": {
                 "pages": {
                     str(MAIN_PAGE_ID): {
-                        "revisions": [
-                            {"slots": {"main": {"*": "[[Law A]]"}}}
-                        ]
+                        "revisions": [{"slots": {"main": {"*": "[[Law A]]"}}}]
                     }
                 }
             }
@@ -46,13 +54,13 @@ def test_get_main_page_titles_fetch_and_cache(monkeypatch, tmp_path):
     titles = law_get._get_main_page_titles()
 
     assert "law a" in titles
-    assert captured["titles"] == ["Law A"]
 
 
 def test_get_main_page_titles_fetch_failure(monkeypatch, tmp_path):
-    cache_path = tmp_path / "page_247.json"
+    cache_path = tmp_path / "law_map.json"
     monkeypatch.setattr(law_get, "_get_cache_path", lambda: cache_path)
-    monkeypatch.setattr(law_get, "_fetch_law_wikitext", lambda page_id=None, title=None: {"query": {"pages": {}}})
+    monkeypatch.setattr(law_get, "_normalized_titles", set())
+    monkeypatch.setattr(law_get, "_fetch_law_wikitext", lambda title=None, page_id=None: {"query": {"pages": {}}})
 
     with pytest.raises(RuntimeError):
         law_get._get_main_page_titles()
@@ -90,3 +98,13 @@ def test_wide_law_search_main_titles_error(monkeypatch):
 
     with pytest.raises(RuntimeError):
         law_get.wide_law_search("Law")
+
+
+def test_resolve_id_to_page_id(monkeypatch):
+    monkeypatch.setattr(law_get, "_law_id_to_page_id", {2000479: 183646})
+    monkeypatch.setattr(law_get, "_page_id_set", {183646, 99999})
+
+    assert law_get.resolve_id_to_page_id(2000479) == 183646   # by law_id
+    assert law_get.resolve_id_to_page_id(183646) == 183646    # by page_id
+    assert law_get.resolve_id_to_page_id(99999) == 99999      # by page_id only
+    assert law_get.resolve_id_to_page_id(1) is None           # unknown
